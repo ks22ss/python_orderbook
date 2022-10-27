@@ -97,6 +97,5 @@ class Orderbook:
 if __name__ == '__main__':
     orderbook = Orderbook()
     orderbook.place_limit_order(LimitOrderInfo("A01",20, 100,'bid'))
-    orderbook.place_limit_order(LimitOrderInfo("A01",20, 100,'ask'))
-    orderbook.place_limit_order(LimitOrderInfo("A01",20, 100,'bid'))
+    orderbook.place_market_order(MarketOrderInfo("M01",21,100,'ask'))
     print(orderbook.book)
