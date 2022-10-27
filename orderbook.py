@@ -20,9 +20,7 @@ class Orderbook:
     def __init__(self) -> None:
         self.book = {}
     
-    def add_new_price(self, price):
-        self.book[price] = deque([])
-    
+    # Validations
     def validate_side_input(self, order):
         if order.side != "bid" and order.side != "ask":
             raise Exception("[Error] order.side is either 'bid' and 'ask'.")  
@@ -39,15 +37,10 @@ class Orderbook:
             if len(self.filter_book_by_side('bid')) > 0 and order.price <= max(self.filter_book_by_side('bid').keys()):
                 raise Exception("[Error] limit price exceed current bid.") 
 
-    def place_limit_order(self, order: LimitOrderInfo):
-        if order.price not in self.book:
-            self.add_new_price(order.price)
-
-        self.validate_side_input(order)
-        self.validate_price_input(order)
-
-        self.book[order.price].appendleft({'id':order.id, 'volume':order.volume, 'side':order.side})
-
+    # Helper Functions
+    def add_new_price(self, price):
+        self.book[price] = deque([])
+    
     def remove_empty_order_lists(self, book):
         return {k:v for k,v in book.items() if len(v) > 0}
 
@@ -63,6 +56,16 @@ class Orderbook:
             reverse = True
         return sorted(book.items(), reverse=reverse)
 
+    # Order Placing
+    def place_limit_order(self, order: LimitOrderInfo):
+        if order.price not in self.book:
+            self.add_new_price(order.price)
+
+        self.validate_side_input(order)
+        self.validate_price_input(order)
+
+        self.book[order.price].appendleft({'id':order.id, 'volume':order.volume, 'side':order.side})
+    
     def place_market_order(self, order: MarketOrderInfo):
         self.validate_side_input(order)
         self.validate_volume_input(order)
