@@ -1,7 +1,6 @@
-from ast import Or
 from collections import deque
 from dataclasses import dataclass
-from shutil import ExecError
+import numpy as np
 
 @dataclass
 class LimitOrderInfo:
@@ -46,6 +45,8 @@ class Orderbook:
 
     def filter_book_by_side(self, side):
         new_book = {}
+        if len(self.book) == 0:
+            return new_book
         for price_level, order_list in self.book.items():
             new_book[price_level] = list(filter(lambda order_info: order_info['side'] == side, order_list))
         return self.remove_empty_order_lists(new_book)
@@ -56,17 +57,34 @@ class Orderbook:
             reverse = True
         return sorted(book.items(), reverse=reverse)
 
+
+    def lowest_ask(self):
+        ask_book = self.filter_book_by_side('ask')
+        if len(ask_book) > 0:
+            return min(ask_book.keys())
+
+
+
+    def highest_bid(self):
+        bid_book = self.filter_book_by_side('bid')
+        if len(bid_book) > 0:
+            return max(bid_book.keys())
+
+
     # Order Placing
-    def place_limit_order(self, order: LimitOrderInfo):
+    def place_limit_order(self, order: LimitOrderInfo , log=False):
         if order.price not in self.book:
             self.add_new_price(order.price)
 
         self.validate_side_input(order)
         self.validate_price_input(order)
 
+        # FIFO
         self.book[order.price].appendleft({'id':order.id, 'volume':order.volume, 'side':order.side})
-    
-    def place_market_order(self, order: MarketOrderInfo):
+        if log:
+            print(f"Limit order placed. [Pirce = {order.price}] [Volume = {order.volume}] [Side = {order.side}]")
+
+    def place_market_order(self, order: MarketOrderInfo, log=False):
         self.validate_side_input(order)
         self.validate_volume_input(order)
 
@@ -75,6 +93,7 @@ class Orderbook:
 
         current_vol = order.volume
         i = 0
+        exec_value = []
         while current_vol > 0:
             
             price_level = new_book[i][0]
@@ -83,19 +102,36 @@ class Orderbook:
             for order_info in order_lists:
                 #print(order_info)
                 if current_vol >= order_info['volume']:
+                    exec_value.append(order_info['volume'] * price_level)
                     self.book[price_level].popleft()
                     current_vol -= order_info['volume']
                 else:
+                    exec_value.append(current_vol * price_level)
                     self.book[price_level][0]['volume'] -= current_vol
                     current_vol = 0
             i += 1
 
         self.book = self.remove_empty_order_lists(self.book)
+        if log:
+            print(f"Market order placed. [Avg. Pirce = {round(sum(exec_value)/order.volume,2)}] [Volume = {order.volume}] [Side = {order.side}]")
+
+    def show(self):
+        print("--------------------------------")
         
+        ask_orderbook = self.filter_book_by_side("ask")
 
+        if len(ask_orderbook) > 0:
+            ask_ladder = {price:sum([order['volume'] for order in order_lists]) for price,order_lists in ask_orderbook.items()}
+            
+            print("Ask")
+            print(np.array(list(sorted(ask_ladder.items(), reverse=True))))
 
-if __name__ == '__main__':
-    orderbook = Orderbook()
-    orderbook.place_limit_order(LimitOrderInfo("A01",20, 100,'bid'))
-    orderbook.place_market_order(MarketOrderInfo("M01",21,100,'ask'))
-    print(orderbook.book)
+        bid_orderbook = self.filter_book_by_side("bid")
+
+        if len(bid_orderbook) > 0:
+            bid_ladder = {price:sum([order['volume'] for order in order_lists]) for price,order_lists in bid_orderbook.items()}
+            print("Bid")
+            print(np.array(list(sorted(bid_ladder.items(), reverse=True))))
+
+        print("--------------------------------")
+
